@@ -1,0 +1,34 @@
+# ============================================================================
+# atoshi-mobile-native — .gitignore
+#
+# Build artifacts are NOT committed. Each developer builds locally
+# (or via CI). Release binaries go to GitHub Releases, not the repo.
+# ============================================================================
+
+# ---- Rust ----
+poseidon/target/
+poseidon/Cargo.lock        # binaries: keep; libraries: ignore. This crate
+                            # is shipped as .so/.a only, treat as binary.
+poseidon/jniLibs/           # built .so files
+poseidon/AtoshiPoseidon.xcframework/
+poseidon/out_sim/
+poseidon/include/           # generated C header
+
+# ---- rapidsnark ----
+rapidsnark/rapidsnark-src/  # cloned submodule (build script clones fresh)
+rapidsnark/jniLibs/         # built .so files
+rapidsnark/Rapidsnark.xcframework/
+rapidsnark/build_*/         # cmake build dirs
+
+# ---- macOS ----
+.DS_Store
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.iml
+
+# ---- Misc ----
+*.log
+*.bak
+*.tmp

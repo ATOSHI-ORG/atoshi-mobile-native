@@ -1,0 +1,40 @@
+[package]
+name = "atoshi-poseidon"
+version = "0.1.0"
+edition = "2021"
+description = "BN254-Poseidon hash for Atoshi privacy mobile clients (Android/iOS)"
+
+[lib]
+# cdylib  → Android .so
+# staticlib → iOS .a
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# circomlib-compatible Poseidon over BN254. Same parameters as
+# the Poseidon used inside the privacy circom circuits, so a hash
+# computed here will match a hash computed in-circuit.
+poseidon-rs = "0.0.10"
+
+# poseidon-rs uses ff_ce internally for its Fr field type. We need the
+# PrimeField trait in scope to call Fr::from_str(...).
+ff_ce = "0.11"
+
+# Big integer arithmetic (32-byte field elements).
+num-bigint = "0.4"
+num-traits = "0.2"
+
+[dev-dependencies]
+hex = "0.4"
+
+# JNI bindings for Android.
+# Build with default features: works on all NDK targets.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { version = "0.21", default-features = false }
+
+[profile.release]
+# Optimize for size & speed; strip debug symbols.
+lto = true
+opt-level = 3
+strip = true
+codegen-units = 1
+panic = "abort"

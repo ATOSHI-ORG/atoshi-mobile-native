@@ -66,15 +66,14 @@ pub fn poseidon_hash(inputs: &[&[u8]]) -> Result<[u8; 32], String> {
 #[cfg(target_os = "android")]
 mod android {
     use super::*;
-    use jni::objects::{JByteArray, JClass, JObjectArray};
-    use jni::sys::jbyteArray;
+    use jni::objects::{JByteArray, JClass, JObjectArray, JString};
+    use jni::sys::{jbyteArray, jstring};
     use jni::JNIEnv;
 
-    /// JNI signature:
+    /// JNI signature (low-level, ByteArray API):
     ///   public static native byte[] hash(byte[][] inputs);
     /// Each input is a 32-byte big-endian field element.
-    /// Returns 32-byte big-endian hash; on error, returns null and
-    /// throws java.lang.RuntimeException.
+    /// Returns 32-byte big-endian hash.
     #[no_mangle]
     pub extern "system" fn Java_xyz_atoshi_poseidon_PoseidonNative_hash<'local>(
         mut env: JNIEnv<'local>,
@@ -105,6 +104,68 @@ mod android {
             Ok(bytes) => env
                 .byte_array_from_slice(&bytes)
                 .map(|a| a.into_raw())
+                .unwrap_or(std::ptr::null_mut()),
+            Err(msg) => {
+                let _ = env.throw_new("java/lang/RuntimeException", msg);
+                std::ptr::null_mut()
+            }
+        }
+    }
+
+    /// JNI signature (high-level, String-based API for ergonomic Kotlin use):
+    ///   public static native String hashStrings(String[] decimalInputs);
+    /// Each input is a decimal big-int string (e.g. "12345" or "0xabc...").
+    /// Returns the hash as a decimal string. Easier than the byte[][] API.
+    ///
+    /// Usage in Kotlin:
+    ///   val out = PoseidonNative.hashStrings(arrayOf(
+    ///       amount.toString(),
+    ///       tokenId.toString(),
+    ///       owner.toString(),
+    ///       blinding.toString(),
+    ///   ))
+    ///   val commitment = BigInteger(out)
+    #[no_mangle]
+    pub extern "system" fn Java_xyz_atoshi_poseidon_PoseidonNative_hashStrings<'local>(
+        mut env: JNIEnv<'local>,
+        _class: JClass<'local>,
+        inputs: JObjectArray<'local>,
+    ) -> jstring {
+        let result = (|| -> Result<String, String> {
+            let len = env
+                .get_array_length(&inputs)
+                .map_err(|e| format!("get_array_length: {}", e))?;
+            let mut bufs: Vec<[u8; 32]> = Vec::with_capacity(len as usize);
+            for i in 0..len {
+                let obj = env
+                    .get_object_array_element(&inputs, i)
+                    .map_err(|e| format!("get_object_array_element[{}]: {}", i, e))?;
+                let s: JString = obj.into();
+                let rust_str: String = env
+                    .get_string(&s)
+                    .map_err(|e| format!("get_string[{}]: {}", i, e))?
+                    .into();
+                // Parse decimal OR 0x-prefixed hex
+                let big = if let Some(hex) = rust_str.strip_prefix("0x").or_else(|| rust_str.strip_prefix("0X")) {
+                    BigInt::from_str_radix(hex, 16)
+                        .map_err(|e| format!("parse hex[{}]: {}", i, e))?
+                } else {
+                    BigInt::from_str_radix(&rust_str, 10)
+                        .map_err(|e| format!("parse decimal[{}]: {}", i, e))?
+                };
+                bufs.push(field_to_buf(&big));
+            }
+            let refs: Vec<&[u8]> = bufs.iter().map(|b| &b[..]).collect();
+            let out = poseidon_hash(&refs)?;
+            // Return as decimal string (Java BigInteger(String) 默认按十进制解析)
+            let big = BigInt::from_bytes_be(num_bigint::Sign::Plus, &out);
+            Ok(big.to_str_radix(10))
+        })();
+
+        match result {
+            Ok(s) => env
+                .new_string(s)
+                .map(|s| s.into_raw())
                 .unwrap_or(std::ptr::null_mut()),
             Err(msg) => {
                 let _ = env.throw_new("java/lang/RuntimeException", msg);

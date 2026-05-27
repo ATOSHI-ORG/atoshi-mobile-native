@@ -21,7 +21,7 @@ object PoseidonNative {
     }
 
     /**
-     * Compute Poseidon hash over N inputs (1..=16).
+     * Low-level API. Compute Poseidon hash over N inputs (1..=16).
      *
      * @param inputs Array of 32-byte big-endian field elements.
      * @return 32-byte big-endian hash output.
@@ -30,8 +30,25 @@ object PoseidonNative {
     external fun hash(inputs: Array<ByteArray>): ByteArray
 
     /**
+     * High-level API for ergonomic Kotlin use.
+     * Pass decimal big-int strings (or "0x..." hex strings), returns decimal string.
+     *
+     * Usage:
+     *   val out = PoseidonNative.hashStrings(arrayOf(
+     *       amount.toString(),      // "1000000000000000000"
+     *       tokenId.toString(),     // "0"
+     *       owner.toString(),       // "12345..."
+     *       blinding.toString(),    // "67890..."
+     *   ))
+     *   val commitment = BigInteger(out)
+     */
+    @JvmStatic
+    external fun hashStrings(inputs: Array<String>): String
+
+    /**
      * Convenience: take BigInteger inputs (must be < BN254 scalar field size),
      * encode them to 32-byte BE buffers, hash, and return the result as BigInteger.
+     * Internally uses the ByteArray API.
      */
     fun hash(vararg fields: BigInteger): BigInteger {
         require(fields.isNotEmpty() && fields.size <= 16) {

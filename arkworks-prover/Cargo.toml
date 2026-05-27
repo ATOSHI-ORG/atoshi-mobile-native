@@ -8,25 +8,29 @@ description = "Groth16 ZK proof generator for Atoshi privacy mobile clients (lic
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-# arkworks-rs Groth16 prover. License: Apache-2.0 / MIT (dual)
-# This is the license-friendly replacement for rapidsnark (GPL-3.0).
-ark-groth16 = { version = "0.5", default-features = false, features = ["parallel"] }
-ark-bn254 = { version = "0.5", default-features = false, features = ["curve"] }
-ark-ec = { version = "0.5", default-features = false }
-ark-ff = { version = "0.5", default-features = false }
-ark-std = { version = "0.5", default-features = false }
-ark-serialize = { version = "0.5", default-features = false }
-ark-relations = { version = "0.5", default-features = false }
-ark-snark = { version = "0.5", default-features = false }
+# Pin everything to ark-* 0.4 (a stable consistent set). Newer
+# 0.5 has SmallFp which propagated into crypto-primitives and breaks
+# ark-circom's expected version. 0.4 is well-tested with ark-circom.
+ark-bn254       = { version = "=0.4.0", default-features = false, features = ["curve"] }
+ark-ec          = { version = "=0.4.2", default-features = false }
+ark-ff          = { version = "=0.4.2", default-features = false }
+ark-std         = { version = "=0.4.0", default-features = false }
+ark-relations   = { version = "=0.4.0", default-features = false }
+ark-serialize   = { version = "=0.4.2", default-features = false }
+ark-snark       = { version = "=0.4.0", default-features = false }
+ark-groth16     = { version = "=0.4.0", default-features = false, features = ["parallel"] }
+ark-poly        = { version = "=0.4.2", default-features = false }
 
-# Reads circom .zkey / .wasm / witness format produced by snarkjs.
-# License: MIT
-ark-circom = { git = "https://github.com/gakonst/ark-circom", branch = "master" }
+# ark-circom commit from late 2023, known to work with ark-* 0.4.
+# DO NOT change to master — master uses ark-* 0.5+ + ark-crypto-primitives
+# which pulls SmallFp and breaks the build.
+ark-circom = { git = "https://github.com/gakonst/ark-circom", rev = "1d185b6dbe149deec96d8fdf06a89fde58e88ef9", default-features = false, features = ["circom-2"] }
 
-# JSON for witness input
+# Big-int + JSON
+num-bigint = "0.4"
+num-traits = "0.2"
 serde_json = "1"
 
-# JNI for Android
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { version = "0.21", default-features = false }
 
